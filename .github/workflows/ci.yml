@@ -1,0 +1,324 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: "3.10"
+            cov-config: .coveragerc.posix
+          - os: ubuntu-latest
+            python-version: "3.11"
+            cov-config: .coveragerc.posix
+          - os: ubuntu-latest
+            python-version: "3.12"
+            cov-config: .coveragerc.posix
+          - os: macos-latest
+            python-version: "3.11"
+            cov-config: .coveragerc.posix
+          - os: windows-latest
+            python-version: "3.11"
+            cov-config: .coveragerc.windows
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Verify no compiled artifacts
+        run: |
+          if find . -name "*.pyc" -o -name "__pycache__" -type d | grep -v ".git" | grep -q .; then
+            echo "ERROR: Found compiled Python artifacts"
+            find . -name "*.pyc" -o -name "__pycache__" -type d | grep -v ".git"
+            exit 1
+          fi
+          echo "✓ No compiled artifacts found"
+        if: runner.os != 'Windows'
+
+      - name: Compile check all scripts
+        run: |
+          find skills -name "*.py" -exec python -m py_compile {} \;
+          echo "✓ All scripts compile successfully"
+        if: runner.os != 'Windows'
+
+      - name: Compile check all scripts (Windows)
+        run: |
+          Get-ChildItem -Path skills -Filter *.py -Recurse | ForEach-Object { python -m py_compile $_.FullName }
+          Write-Host "✓ All scripts compile successfully"
+        if: runner.os == 'Windows'
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r config/requirements-dev.txt
+
+      - name: Run tests with coverage
+        run: |
+          pytest tests/ -v --cov=skills --cov-config=${{ matrix.cov-config }} --cov-report=term-missing --cov-report=xml --cov-fail-under=50
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+
+  security-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for token-in-URL patterns
+        run: |
+          FOUND_ISSUES=0
+
+          echo "=== Checking for token-in-URL patterns ==="
+
+          # Pattern 1: Direct token in URL (https://TOKEN@github.com)
+          if grep -rn "https://.*@github\.com" skills/ --include="*.py" | grep -v "test_" | grep -v "#"; then
+            echo "WARNING: Found potential token-in-URL pattern"
+            FOUND_ISSUES=1
+          fi
+
+          # Pattern 2: x-access-token in URL (GitHub's token auth format)
+          if grep -rn "x-access-token.*@" skills/ --include="*.py" -i | grep -v "test_" | grep -v "#"; then
+            echo "ERROR: Found x-access-token in URL pattern"
+            FOUND_ISSUES=1
+          fi
+
+          # Pattern 3: f-string with token in URL
+          if grep -rn 'f["]https://.*{.*token' skills/ --include="*.py" -i | grep -v "test_"; then
+            echo "ERROR: Found f-string pattern with token in URL"
+            FOUND_ISSUES=1
+          fi
+
+          if [ $FOUND_ISSUES -eq 1 ]; then
+            echo ""
+            echo "SECURITY: Token-in-URL patterns detected!"
+            echo "Use GIT_ASKPASS or credential helpers instead."
+            exit 1
+          fi
+
+          echo "✓ No token-in-URL patterns found"
+
+      - name: Check for non-atomic state writes
+        run: |
+          FOUND_ISSUES=0
+          CRITICAL_PATHS="registry|provenance|manifest|SKILL\.md"
+
+          echo "=== Checking for non-atomic writes to critical files ==="
+
+          # Pattern 1: open('w') or open("w") with single/double quotes
+          if grep -rn "open(.*, ['\"]w['\"]" skills/ --include="*.py" | \
+             grep -v "safe_io" | grep -v "test_" | grep -iE "$CRITICAL_PATHS"; then
+            echo "ERROR: Found open('w') pattern for critical files"
+            FOUND_ISSUES=1
+          fi
+
+          # Pattern 2: Path.open("w") - pathlib style
+          if grep -rn "\.open.*['\"]w['\"]" skills/ --include="*.py" | \
+             grep -v "safe_io" | grep -v "test_" | grep -iE "$CRITICAL_PATHS"; then
+            echo "ERROR: Found Path.open('w') pattern for critical files"
+            FOUND_ISSUES=1
+          fi
+
+          # Pattern 3: json.dump without safe_io context
+          if grep -rn "json\.dump\s*(" skills/ --include="*.py" -A2 | \
+             grep -v "safe_io" | grep -v "test_" | grep -iE "$CRITICAL_PATHS"; then
+            echo "ERROR: Found json.dump for critical files outside safe_io"
+            FOUND_ISSUES=1
+          fi
+
+          # Pattern 4: .write_text() - non-atomic pathlib write
+          # (url_utils uses it for temp askpass wrapper scripts - acceptable)
+          if grep -rn "\.write_text(" skills/ --include="*.py" | \
+             grep -v "safe_io" | grep -v "url_utils" | grep -v "test_"; then
+            echo "ERROR: Found .write_text() pattern - use safe_write_text() instead"
+            FOUND_ISSUES=1
+          fi
+
+          if [ $FOUND_ISSUES -eq 1 ]; then
+            echo ""
+            echo "Non-atomic writes detected for critical state files!"
+            echo "Use safe_write_json(), safe_update_json(), or safe_write_text() instead."
+            exit 1
+          fi
+
+          echo "✓ No non-atomic critical writes found"
+
+      - name: Check for unsafe subprocess shell=True
+        run: |
+          echo "=== Checking for shell=True in subprocess calls ==="
+
+          # SECURITY.md requires subprocess.run([...], shell=False)
+          # shell=True is dangerous with user-controlled input
+          if grep -rn "shell\s*=\s*True" skills/ --include="*.py" | grep -v "test_"; then
+            echo "ERROR: Found shell=True in subprocess calls"
+            echo "Use shell=False with explicit argument lists instead"
+            exit 1
+          fi
+
+          echo "✓ No unsafe shell=True patterns found"
+
+  version-drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+
+      - name: Check for version drift
+        run: python scripts/check_version_drift.py
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: version-drift-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+      - name: Install dev dependencies
+        run: pip install -r config/requirements-dev.txt
+
+      - name: Run ruff check
+        run: ruff check skills/ tests/
+
+      - name: Run ruff format check
+        run: ruff format --check skills/ tests/
+
+  dist-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+      - name: Build distribution
+        run: |
+          python scripts/build_dist.py --manifest config/dist-manifest.json --output dist/ --verify --clean
+          echo "✓ Distribution built successfully"
+
+      - name: Verify dist excludes tests and CI
+        run: |
+          VIOLATIONS=0
+
+          # Check that tests are excluded
+          if find dist/ -name "test_*.py" | grep -q .; then
+            echo "ERROR: Found test files in distribution"
+            find dist/ -name "test_*.py"
+            VIOLATIONS=1
+          fi
+
+          # Check that .github is excluded
+          if [ -d "dist/.github" ]; then
+            echo "ERROR: Found .github in distribution"
+            VIOLATIONS=1
+          fi
+
+          # Check that coverage artifacts are excluded
+          if find dist/ -name ".coverage*" -o -name "coverage.xml" -o -name "htmlcov" | grep -q .; then
+            echo "ERROR: Found coverage artifacts in distribution"
+            VIOLATIONS=1
+          fi
+
+          # Check that __pycache__ is excluded
+          if find dist/ -name "__pycache__" -type d | grep -q .; then
+            echo "ERROR: Found __pycache__ in distribution"
+            VIOLATIONS=1
+          fi
+
+          # Check that docs/ is excluded
+          if [ -d "dist/docs" ]; then
+            echo "ERROR: Found docs/ in distribution"
+            VIOLATIONS=1
+          fi
+
+          # Verify required files are present
+          for file in "README.md" "LICENSE" "SECURITY.md" "CLAUDE.md"; do
+            if [ ! -f "dist/$file" ]; then
+              echo "ERROR: Missing required file: $file"
+              VIOLATIONS=1
+            fi
+          done
+
+          # Verify skills directories are present
+          for dir in "skills/_shared" "skills/mine" "skills/mine-mine"; do
+            if [ ! -d "dist/$dir" ]; then
+              echo "ERROR: Missing required directory: $dir"
+              VIOLATIONS=1
+            fi
+          done
+
+          if [ $VIOLATIONS -eq 1 ]; then
+            echo ""
+            echo "Distribution verification FAILED"
+            exit 1
+          fi
+
+          echo "✓ Distribution verification passed"
+          echo "Files in distribution:"
+          find dist/ -type f | wc -l
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    needs: dist-build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build distribution
+        run: python scripts/build_dist.py --manifest config/dist-manifest.json --output dist/ --clean
+
+      - name: Smoke test - install_skills.py dry-run
+        run: |
+          python scripts/install_skills.py --dry-run
+          echo "✓ install_skills.py dry-run works"
+
+      - name: Install skills to isolated location
+        run: |
+          python scripts/install_skills.py --target ~/.claude/skills/
+          echo "✓ Skills installed to ~/.claude/skills/"
+
+      - name: Smoke test - verify scripts are runnable
+        run: |
+          # Test import_assets.py --help
+          python ~/.claude/skills/mine/scripts/import_assets.py --help
+          echo "✓ import_assets.py runs successfully"
+
+          # Test discover_integrations.py --help
+          python ~/.claude/skills/mine-mine/scripts/discover_integrations.py --help
+          echo "✓ discover_integrations.py runs successfully"
+
+          # Test scan_repo.py --help
+          python ~/.claude/skills/mine/scripts/scan_repo.py --help
+          echo "✓ scan_repo.py runs successfully"
+
+      - name: Smoke test - dry-run on local repo
+        run: |
+          # Run a dry-run scan on the repo itself
+          # Note: --dry-run now works as a flag (no value needed)
+          python ~/.claude/skills/mine/scripts/import_assets.py \
+            --source . \
+            --scope user \
+            --dry-run \
+            --verbose
+          echo "✓ Dry-run smoke test completed"

@@ -1,0 +1,12 @@
+[run]
+branch = True
+relative_files = True
+
+[report]
+# Standard exclude patterns plus Windows-only code (running on POSIX)
+exclude_lines =
+    pragma: no cover
+    pragma: win32-only
+    if __name__ == .__main__.:
+    raise NotImplementedError
+    if TYPE_CHECKING:

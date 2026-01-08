@@ -1,0 +1,44 @@
+{
+    "version": "1.0",
+    "description": "Distribution manifest for MINE skill packs. Defines what ships in the 'two skills' distribution vs what stays in the development repository.",
+    "include": [
+        "skills/_shared/**",
+        "skills/mine/**",
+        "skills/mine-mine/**",
+        "README.md",
+        "LICENSE",
+        "SECURITY.md",
+        "CLAUDE.md"
+    ],
+    "exclude": [
+        "tests/**",
+        ".github/**",
+        ".git/**",
+        ".coverage",
+        ".coverage.*",
+        ".coveragerc.*",
+        "coverage.xml",
+        "coverage_report.txt",
+        "htmlcov/**",
+        "*.pyc",
+        "__pycache__/**",
+        "*.egg-info/**",
+        "archive/**",
+        "backup/**",
+        "docs/METRICS.md",
+        "docs/CONTRIBUTING.md",
+        "docs/CODE_OF_CONDUCT.md",
+        "docs/CLAIMS.json",
+        "docs/CHANGELOG.md",
+        "docs/BASELINE.md",
+        "*.bak",
+        "*.tmp",
+        "*.log",
+        ".pytest_cache/**"
+    ],
+    "notes": {
+        "purpose": "This manifest is consumed by build/release scripts to produce clean skill-only distributions.",
+        "tests_location": "Tests remain in the source repository for development and CI but are excluded from distribution.",
+        "version_stamping": "Optional: Build scripts may inject version info at release time."
+    }
+}

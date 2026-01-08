@@ -1,0 +1,17 @@
+# Development dependencies for MINE
+# Pin versions for reproducible CI builds
+
+# Testing
+pytest==8.3.5
+pytest-cov==6.1.1
+
+
+
+# Linting and formatting
+# NOTE: Keep version in sync with .pre-commit-config.yaml
+ruff==0.14.0
+
+# Note: Keep this file in sync with CI workflow
+# To update versions, run:
+#   pip install --upgrade <package>
+#   pip show <package> | grep Version

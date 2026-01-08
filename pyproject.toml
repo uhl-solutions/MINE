@@ -1,0 +1,57 @@
+[project]
+name = "mine-skills"
+version = "1.0.0"
+description = "MINE - Modular Integration and Normalization Engine for Claude Code"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "uhl.solutions"}
+]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+# E = pycodestyle errors
+# F = pyflakes
+# W = pycodestyle warnings
+select = ["E", "F", "W"]
+ignore = [
+    "E402",  # module level import not at top - tests need sys.path manipulation first
+    "E501",  # line too long - handled by line-length setting
+    "E701",  # multiple statements on one line - existing code patterns
+    "E722",  # bare except - we have legitimate uses with re-raise
+    "E731",  # lambda assignment - used for simple one-liner fallbacks
+    "W291",  # trailing whitespace - existing code
+    "W293",  # blank line contains whitespace - minor style issue
+    "F401",  # unused import - bootstrap modules are imported for side effects
+    "F403",  # star import used - used in shared module __init__.py
+    "F405",  # name may be undefined from star import - same reason
+    "F841",  # local variable assigned but never used - existing code patterns
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["safe_io", "url_utils", "path_safety", "redaction", "platform_utils", "hash_helpers"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+# Exclude __init__.py files from coverage (import boilerplate)
+omit = [
+    "*/__init__.py",
+    "*/_bootstrap.py",
+]
+
+[tool.coverage.report]
+# Exclude lines that are not meant to be covered
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "pragma: win32-only",
+    "pragma: posix-only",
+]

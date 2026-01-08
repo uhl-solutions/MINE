@@ -1,0 +1,188 @@
+{
+    "version": "1.0",
+    "claims": {
+        "path_safety_traversal_blocked": {
+            "description": "Paths containing '../' are rejected",
+            "doc_locations": [
+                "CLAUDE.md:153",
+                "README.md:45"
+            ],
+            "tests": [
+                "tests/test_path_safety.py::TestPathSafetyTraversalBlocked::test_traversal_blocked_with_dotdot_in_path"
+            ],
+            "status": "implemented"
+        },
+        "symlink_safety_skipped": {
+            "description": "Symlinks are skipped during import/scan",
+            "doc_locations": [
+                "CLAUDE.md:154"
+            ],
+            "tests": [
+                "tests/test_import_safety.py::TestSymlinksSafety::test_symlinks_skipped_during_scan"
+            ],
+            "status": "implemented"
+        },
+        "overlapping_destinations_blocked": {
+            "description": "Overlapping destination paths are blocked",
+            "doc_locations": [
+                "CLAUDE.md:152"
+            ],
+            "tests": [
+                "tests/test_import_safety.py::TestOverlappingDestinations::test_overlapping_blocked_same_dest"
+            ],
+            "status": "implemented"
+        },
+        "cache_collision_safe": {
+            "description": "Cache uses hash-based naming to prevent collisions",
+            "doc_locations": [
+                "README.md:89"
+            ],
+            "tests": [
+                "tests/test_cache_collision.py::TestCacheCollisionSafe::test_hash_based_naming_github_url"
+            ],
+            "status": "implemented"
+        },
+        "force_push_detected": {
+            "description": "Force-push/history rewrite is detected and handled",
+            "doc_locations": [],
+            "tests": [
+                "tests/test_force_push.py::TestForcePushDetection::test_get_safe_diff_range_reimport_required_for_gone_commit"
+            ],
+            "status": "implemented"
+        },
+        "dry_run_default": {
+            "description": "All operations use --dry-run=true by default",
+            "doc_locations": [
+                "CLAUDE.md:151",
+                "README.md:67"
+            ],
+            "tests": [
+                "tests/test_import_assets.py::TestDryRunDefault::test_dry_run_default"
+            ],
+            "status": "implemented"
+        },
+        "local_mods_protected": {
+            "description": "Never overwrite silently; locally modified files are protected",
+            "doc_locations": [],
+            "tests": [
+                "tests/test_file_lifecycle.py::TestFileLifecycle::test_delete_policy_skip"
+            ],
+            "status": "implemented"
+        },
+        "hooks_staged": {
+            "description": "Hooks are never auto-enabled; staged into assigned locations",
+            "doc_locations": [
+                "SECURITY.md:71"
+            ],
+            "tests": [
+                "tests/test_hooks_safety.py::TestHooksSafety::test_hooks_are_staged_not_installed"
+            ],
+            "status": "implemented"
+        },
+        "security_resource_limits": {
+            "description": "Enforce limits on scan time, file size, and artifact count",
+            "doc_locations": [
+                "SECURITY.md:58",
+                "SECURITY.md:120"
+            ],
+            "tests": [
+                "tests/test_scan_safety.py::TestResourceLimits::test_max_artifacts_limit_exists",
+                "tests/test_scan_safety.py::TestResourceLimits::test_max_scan_time_limit_exists",
+                "tests/test_scan_safety.py::TestResourceLimits::test_scanner_respects_artifact_limit"
+            ],
+            "status": "implemented"
+        },
+        "security_no_execution": {
+            "description": "Do not execute untrusted code/scripts during scan or import",
+            "doc_locations": [
+                "SECURITY.md:60"
+            ],
+            "tests": [
+                "tests/test_hooks_safety.py::TestHooksSafety::test_hooks_are_staged_not_installed"
+            ],
+            "status": "implemented"
+        },
+        "security_clean_artifacts": {
+            "description": "Ensure distribution artifacts do not contain pyc files or tests",
+            "doc_locations": [
+                "SECURITY.md:132",
+                "SECURITY.md:174"
+            ],
+            "tests": [
+                "tests/test_build_dist.py::TestDistManifestPatterns::test_tests_excluded",
+                "tests/test_build_dist.py::TestDistManifestPatterns::test_pycache_excluded",
+                "tests/test_build_dist.py::TestReproducibleBuilds::test_create_reproducible_zip_deterministic"
+            ],
+            "status": "implemented"
+        },
+        "security_policy_manual": {
+            "description": "Manual or procedural security checklist item (not automated)",
+            "doc_locations": [
+                "SECURITY.md"
+            ],
+            "tests": [],
+            "status": "manual"
+        },
+        "secrets_redacted": {
+            "description": "Secrets should not be persisted; redaction runs during conversion",
+            "doc_locations": [
+                "SECURITY.md:94"
+            ],
+            "tests": [
+                "tests/test_url_redaction.py::TestRedactUrlCredentials::test_redacts_username_password",
+                "tests/test_secret_redaction.py::TestSecretRedaction::test_aws_secret_key_redacted",
+                "tests/test_secret_redaction.py::TestSecretRedaction::test_openai_key_redacted"
+            ],
+            "status": "implemented"
+        },
+        "case_insensitive_collisions": {
+            "description": "Be robust on case-insensitive filesystems; collisions detected",
+            "doc_locations": [],
+            "tests": [
+                "tests/test_import_safety.py::TestOverlappingDestinations::test_overlapping_blocked_same_dest"
+            ],
+            "status": "implemented"
+        },
+        "feature_import_standard": {
+            "description": "Can import standard Claude artifacts (Skills, Commands, Agents, etc.)",
+            "doc_locations": [
+                "README.md:115-124"
+            ],
+            "tests": [
+                "tests/test_golden_e2e.py::TestImportStandard::test_import_commands_to_temp_target",
+                "tests/test_golden_e2e.py::TestImportStandard::test_import_skill_to_temp_target",
+                "tests/test_golden_e2e.py::TestImportStandard::test_import_agents_to_temp_target",
+                "tests/test_golden_e2e.py::TestImportStandard::test_import_mcp_config_staged"
+            ],
+            "status": "implemented"
+        },
+        "feature_convert_frameworks": {
+            "description": "Can convert Fabric, LangChain, and AutoGen patterns",
+            "doc_locations": [
+                "README.md:126-141"
+            ],
+            "tests": [
+                "tests/test_golden_e2e.py::TestConvertFrameworks::test_fabric_conversion_creates_commands",
+                "tests/test_golden_e2e.py::TestConvertFrameworks::test_fabric_conversion_complex_pattern_becomes_agent",
+                "tests/test_golden_e2e.py::TestConvertFrameworks::test_fabric_conversion_preserves_pattern_name",
+                "tests/test_golden_e2e.py::TestConvertFrameworks::test_langchain_scaffold_generation",
+                "tests/test_framework_detection.py"
+            ],
+            "status": "implemented"
+        },
+        "feature_agentic_discovery": {
+            "description": "Can discover agentic content in generic repos",
+            "doc_locations": [
+                "README.md:143-149"
+            ],
+            "tests": [
+                "tests/test_golden_e2e.py::TestAgenticDiscovery::test_discovery_finds_prompts_directory",
+                "tests/test_golden_e2e.py::TestAgenticDiscovery::test_discovery_finds_agents_directory",
+                "tests/test_golden_e2e.py::TestAgenticDiscovery::test_discovery_respects_max_candidates_limit",
+                "tests/test_golden_e2e.py::TestAgenticDiscovery::test_discovery_skips_node_modules",
+                "tests/test_golden_e2e.py::TestAgenticDiscovery::test_discovery_finds_readme_as_candidate"
+            ],
+            "status": "implemented"
+        }
+    }
+}
